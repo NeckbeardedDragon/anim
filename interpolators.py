@@ -1,59 +1,105 @@
 import math
 
 class LinearInterpolator:
-    """Linearly interpolates between segments in a given list of values."""    
-    def __init__(self,*segments):
-        """Segments should be in the form (start value,length,end value)
-            start value,end value - objects to be interpolated. Must be of types that can be added with the other values and multiplied by floats
-            length - a float denoting how "long" the segment is. 0 length segments are allowed, but will never have their values chosen."""
-        self.segments = segments[:]
-        self.sum = sum(map(lambda x: x[1],self.segments))
+    """Linearly interpolates between points in a given list of values."""    
+    def __init__(self,*points):
+        """Points should be in the form (position, value)
+            Values can be any objects that can be added to each other and multiplied by floats
+            Positions can be any float.
+            Positions can overlap, and due to python's stable sorting, will order themselves along the line in their original ordering.
+            This can be used for sharp changes"""
+        if len(points)<2:
+            raise ValueError("Not enough points")
+        self.points = list(points)
+        self.points.sort(key=lambda x: x[0])
         
     def __call__(self,val):
         """Retrieves a linearly interpolated value.
-            Finds the segment val is contained within, and interpolates between the start and end values.
-            Values outside the range will loop.
-            If val is exactly on the border of two segment, it will return the second segment's start value."""
-        while val < 0:
-            val += self.sum
-        while val >= self.sum:
-            val -= self.sum
-        for segment in self.segments:
-            if val == 0:
-                return segment[0]
-            if val<segment[1]:
-                v = val/segment[1]
-                return ((1-v)*segment[0])+(v*segment[2])
-            val -= segment[1]
-        return segment[2]
-
-def modulo(value):
-    """Returns a LinearInterpolator object that acts as a float modulo function."""
-    return LinearInterpolator((0,value,value))
+            Values outside the range will return the closest point"""
+        if val<=self.points[0][0]:
+            return self.points[0][1]
+        if val>=self.points[-1][0]:
+            return self.points[-1][1]
+        for i in range(len(self.points)-1):
+            if val == self.points[i][0]:
+                return self.points[i][1]
+            if val < self.points[i+1][0]:
+                val -= self.points[i][0]
+                val /= self.points[i+1][0]-self.points[i][0]
+                return ((1-val)*self.points[i][1])+(val*self.points[i+1][1])
+        return None
 
 class CosineInterpolator:
-    """Interpolates between segments in a given list of values using cosines."""    
-    def __init__(self,*segments):
-        """Segments should be in the form (start value,length,end value)
-            start value,end value - objects to be interpolated. Must be of types that can be added with the other values and multiplied by floats
-            length - a float denoting how "long" the segment is. 0 length segments are allowed, but will never have their values chosen."""
-        self.segments = segments[:]
-        self.sum = sum(map(lambda x: x[1],self.segments))
+    """Interpolates using cosines between points in a given list of values."""    
+    def __init__(self,*points):
+        """Points should be in the form (position, value)
+            Values can be any objects that can be added to each other and multiplied by floats
+            Positions can be any float.
+            Positions can overlap, and due to python's stable sorting, will order themselves along the line in their original ordering.
+            This can be used for sharp changes"""
+        if len(points)<2:
+            raise ValueError("Not enough points")
+        self.points = list(points)
+        self.points.sort(key=lambda x: x[0])
         
     def __call__(self,val):
         """Retrieves a cosine interpolated value.
-            Finds the segment val is contained within, and interpolates between the start and end values.
-            Values outside the range will loop.
-            If val is exactly on the border of two segment, it will return the second segment's start value."""
-        while val < 0:
-            val += self.sum
-        while val >= self.sum:
-            val -= self.sum
-        for segment in self.segments:
-            if val == 0:
-                return segment[0]
-            if val<segment[1]:
-                v = (1-math.cos(math.pi*val/segment[1]))/2
-                return ((1-v)*segment[0])+(v*segment[2])
-            val -= segment[1]
-        return segment[2]
+            Values outside the range will return the closest point"""
+        if val<=self.points[0][0]:
+            return self.points[0][1]
+        if val>=self.points[-1][0]:
+            return self.points[-1][1]
+        for i in range(len(self.points)-1):
+            if val == self.points[i][0]:
+                return self.points[i][1]
+            if val < self.points[i+1][0]:
+                val -= self.points[i][0]
+                val /= self.points[i+1][0]-self.points[i][0]
+                val = (1-math.cos(val*math.pi))/2
+                return ((1-val)*self.points[i][1])+(val*self.points[i+1][1])
+        return None
+
+
+class CubicInterpolator:
+    """Cubically interpolates between points in a given list of values."""    
+    def __init__(self,*points):
+        """Points should be in the form (position, value)
+            Values can be any objects that can be added to each other and multiplied by floats
+            Positions can be any float.
+            Positions can overlap, and due to python's stable sorting, will order themselves along the line in their original ordering.
+            This can be used for sharp changes"""
+        if len(points)<2:
+            raise ValueError("Not enough points")
+        self.points = list(points)
+        self.points.sort(key=lambda x: x[0])
+        
+    def __call__(self,val):
+        """Retrieves a cubically interpolated value.
+            Values outside the range will return the closest point"""
+        if val<=self.points[0][0]:
+            return self.points[0][1]
+        if val>=self.points[-1][0]:
+            return self.points[-1][1]
+        for i in range(len(self.points)-1):
+            if val == self.points[i][0]:
+                return self.points[i][1]
+            if val < self.points[i+1][0]:
+                val -= self.points[i][0]
+                val /= self.points[i+1][0]-self.points[i][0]
+                y = [None,self.points[i][1],self.points[i+1][1],None]
+                if i==0:
+                    y[0] = self.points[i][1]
+                else:
+                    y[0] = self.points[i-1][1]
+                if i+2==len(self.points):
+                    y[3] = self.points[i+1][1]
+                else:
+                    y[3] = self.points[i+2][1]
+
+                a = list()
+                a.append(y[3]-y[2]-y[0]+y[1])
+                a.append(y[0]-y[1]-a[0])
+                a.append(y[2]-y[0])
+                a.append(y[1])
+                return a[0]*val**3+a[1]*val**2+a[2]*val+a[3]
+        return None
